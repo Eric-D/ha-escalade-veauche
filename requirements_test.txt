@@ -1,0 +1,20 @@
+# Outillage de test uniquement.
+#
+# Les dépendances runtime (beautifulsoup4, requests) ne sont PAS recopiées
+# ici : elles viennent du manifeste via scripts/manifest_requirements.py, pour
+# qu'un bump du manifeste ne laisse pas la CI valider contre un plancher
+# périmé.
+#
+# Home Assistant en est absent volontairement : tests/conftest.py le simule,
+# les tests ne portant que sur le scraping et les fonctions pures. Le job
+# « import-check » de la CI l'installe, lui, pour de vrai.
+pytest>=8.0.0
+# Épinglé, contrairement à Home Assistant dans le job import-check : là, un
+# échec signifie que l'amont a cassé l'intégration, c'est le signal recherché.
+# Ici il signifierait que l'amont a une nouvelle opinion sur le style — du bruit
+# qui, répété sur l'exécution quotidienne, apprend à ignorer les échecs.
+ruff~=0.16.0
+# Les tests du coordinator et du service portent sur des coroutines. Sans ce
+# greffon, pytest les collecte, ne les attend jamais, et les affiche en vert
+# sans avoir exécuté une seule assertion.
+pytest-asyncio>=0.24

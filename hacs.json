@@ -1,0 +1,9 @@
+{
+  "name": "Escalade Veauche — Les Cimes Veauchoises",
+  "content_in_root": false,
+  "homeassistant": "2026.1.0",
+  "render_readme": true,
+  "country": [
+    "FR"
+  ]
+}

@@ -1,0 +1,180 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  validate-hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
+
+  # hassfest valide le manifeste pour de vrai. Attention au périmètre exact :
+  # l'action passe --integration-path, donc specific_integrations est vrai, et
+  # dependencies.py saute alors _validate_dependencies (existence) et
+  # _validate_circular_dependencies (cycles). Ce qui tourne effectivement ici :
+  # la règle « composant importé mais non déclaré », l'ordre des clés, le
+  # vocabulaire d'integration_type et la présence de « version ». C'est la
+  # première règle qui rend superflue toute assertion écrite à la main sur les
+  # dépendances — ne pas supprimer d'autre test en croyant hassfest le couvrir.
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements_test.txt
+            custom_components/escalade_veauche/manifest.json
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r requirements_test.txt
+          python scripts/manifest_requirements.py
+          python -m pip install -r manifest-requirements.txt
+
+      - name: Run tests
+        run: pytest -q
+
+      # Après les tests : un simple dépassement de ligne ne doit pas masquer
+      # l'état réel du code et coûter un aller-retour.
+      # « . » plutôt qu'une liste de chemins, qui laisserait passer un futur
+      # fichier à la racine.
+      - name: Lint
+        run: ruff check . --output-format=github
+
+  # Les tests tournent avec un Home Assistant simulé : ils ne peuvent pas dire
+  # qu'un module importé existe réellement. Ce job le vérifie, avec le vrai
+  # paquet installé.
+  import-check:
+    # Les deux extrémités de l'intervalle supporté. Le plancher n'était
+    # jusqu'ici qu'une déclaration dans hacs.json : rien ne vérifiait qu'une
+    # API employée existe encore en dessous, et le cliquet de test_manifest ne
+    # peut pas le faire — il compare deux nombres.
+    name: import-check (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Épinglé au plancher déclaré dans hacs.json, et sur le Python que
+          # cette version exige. À bouger avec le plancher, pas avant.
+          - name: plancher
+            python-version: "3.13"
+            homeassistant: homeassistant==2026.1.0
+          # Volontairement non épinglé : ce job doit virer au rouge quand une
+          # version amont casse l'intégration. C'est le signal recherché, y
+          # compris sur l'exécution programmée quotidienne. 3.14 et non la
+          # version du plancher : le HA le plus récent l'exige depuis 2026.3,
+          # et sur 3.13 la résolution retomberait en silence sur une version
+          # plus ancienne — le job cesserait de faire ce pour quoi il existe.
+          - name: dernière
+            python-version: "3.14"
+            homeassistant: homeassistant
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Home Assistant and integration requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "${{ matrix.homeassistant }}"
+          python scripts/manifest_requirements.py
+          python -m pip install -r manifest-requirements.txt
+
+      - name: Import every module of the integration
+        run: |
+          python -c "
+          import importlib
+          for suffix in ('', '.scraper', '.sensor', '.config_flow', '.dates', '.coordinator', '.changes'):
+              name = 'custom_components.escalade_veauche' + suffix
+              importlib.import_module(name)
+              print('ok', name)
+          # Le flux d'options ne reçoit plus l'entrée : il la tient de la
+          # propriété de sa classe de base. Rétablir l'argument produit un
+          # TypeError à l'ouverture des options, que rien d'autre ne verrait —
+          # importer le module ne construit pas le flux.
+          from custom_components.escalade_veauche.config_flow import (
+              EscaladeVeaucheConfigFlow,
+          )
+          EscaladeVeaucheConfigFlow.async_get_options_flow(None)
+          print('ok flux d options construit sans argument')
+          # Le job « dernière » retombe en silence sur un HA ancien si son
+          # interpréteur est trop vieux : la version obtenue doit rester dans
+          # l intervalle supporté.
+          from homeassistant.const import __version__ as ha_version
+          print('HA', ha_version)
+          assert int(ha_version.split('.')[0]) >= 2026, f'HA {ha_version} sous le plancher'
+          "
+
+  validate-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Tests de rendu
+        working-directory: frontend
+        run: npm test
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Vérifier que le bundle commité est à jour
+        run: |
+          if ! git diff --quiet custom_components/escalade_veauche/www/escalade-card.js; then
+            echo "::error::Le bundle commité diffère du build. Exécute 'cd frontend && npm run build' avant de pousser."
+            git --no-pager diff --stat custom_components/escalade_veauche/www/escalade-card.js
+            exit 1
+          fi

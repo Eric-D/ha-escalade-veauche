@@ -1,0 +1,42 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+# 100 plutôt que les 88 de Home Assistant core : c'est la largeur retenue sur
+# ha-mediatheque-veauche, dont ce dépôt reprend les conventions, et les deux
+# doivent rester relisables l'un après l'autre.
+line-length = 100
+# Aligné sur REQUIRED_PYTHON_VER de notre plancher : Home Assistant 2026.1
+# exige « >=3.13.2 ». Cibler plus haut autoriserait pyupgrade à écrire une
+# syntaxe qu'un utilisateur du plancher ne pourrait pas importer, et la CI ne
+# le verrait pas — HA 2026.9 exige déjà 3.14.
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "ASYNC", # flake8-async
+    "G",     # flake8-logging-format
+    "LOG",   # flake8-logging
+    "RUF",   # règles propres à ruff
+    "DTZ",   # flake8-datetimez
+]
+
+# DTZ est la règle qui compte le plus ici. Sur le dépôt d'origine, c'est elle
+# qui a révélé que `date.today()` suivait le fuseau du système hôte et non
+# celui configuré dans Home Assistant — un décalage d'un jour sur tous les
+# délais pendant une partie de la journée. Le même piège existe mot pour mot
+# sur « prochain créneau ». Les seules exemptions sont marquées
+# `# noqa: DTZ007` et portent toutes sur des dates civiles : un créneau est un
+# jour, pas un instant.
+#
+# ASYNC mérite un mot : ASYNC210 attrape un appel HTTP bloquant dans une
+# coroutine, exactement le risque de cette intégration, dont l'appel requests
+# doit passer par hass.async_add_executor_job. Zéro constat aujourd'hui —
+# c'est un verrou, pas une dette.

@@ -1,0 +1,6 @@
+refresh:
+  name: Rafraîchir le calendrier
+  description: >-
+    Relève immédiatement le calendrier des créneaux, sans attendre le prochain
+    cycle. Le service ne rend la main qu'une fois le relevé terminé : une
+    automatisation qui lit un capteur juste après voit bien la valeur à jour.

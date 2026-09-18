@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Veauche Climbing",
+        "description": "Slots are read from the public calendar of Les Cimes Veauchoises. No credentials are needed.",
+        "data": {
+          "scan_interval": "Polling interval (minutes)",
+          "notify_within_days": "Notify for slots within (days)"
+        },
+        "data_description": {
+          "scan_interval": "The club updates its calendar by hand, often the day before a slot: one hour is plenty.",
+          "notify_within_days": "An « escalade_veauche_slot_changed » event is fired when a slot within this window changes state. Hook an automation to it to get a notification. 0 disables it."
+        }
+      },
+      "reconfigure": {
+        "title": "Change the polling interval",
+        "description": "Changes how often the club calendar is read.",
+        "data": {
+          "scan_interval": "Polling interval (minutes)",
+          "notify_within_days": "Notify for slots within (days)"
+        },
+        "data_description": {
+          "notify_within_days": "An « escalade_veauche_slot_changed » event is fired when a slot within this window changes state. Hook an automation to it to get a notification. 0 disables it."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not read the club calendar. Try again later.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "The club calendar is already configured.",
+      "reconfigure_successful": "Polling interval updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "scan_interval": "Polling interval (minutes)",
+          "notify_within_days": "Notify for slots within (days)"
+        },
+        "data_description": {
+          "notify_within_days": "An « escalade_veauche_slot_changed » event is fired when a slot within this window changes state. Hook an automation to it to get a notification. 0 disables it."
+        }
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh the calendar",
+      "description": "Reads the slot calendar right away, without waiting for the next cycle."
+    }
+  }
+}

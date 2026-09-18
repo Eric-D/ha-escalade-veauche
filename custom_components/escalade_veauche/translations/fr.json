@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Escalade Veauche",
+        "description": "Les créneaux sont lus sur le calendrier public des Cimes Veauchoises. Aucun identifiant n'est nécessaire.",
+        "data": {
+          "scan_interval": "Intervalle de relevé (minutes)",
+          "notify_within_days": "Prévenir pour les créneaux à moins de (jours)"
+        },
+        "data_description": {
+          "scan_interval": "Le club met son calendrier à jour à la main, souvent la veille du créneau : une heure suffit largement.",
+          "notify_within_days": "Un événement « escalade_veauche_slot_changed » est émis quand un créneau de cette fenêtre change d'état. Branchez-y une automatisation pour recevoir une notification. 0 désactive."
+        }
+      },
+      "reconfigure": {
+        "title": "Modifier l'intervalle de relevé",
+        "description": "Change la fréquence à laquelle le calendrier du club est relu.",
+        "data": {
+          "scan_interval": "Intervalle de relevé (minutes)",
+          "notify_within_days": "Prévenir pour les créneaux à moins de (jours)"
+        },
+        "data_description": {
+          "notify_within_days": "Un événement « escalade_veauche_slot_changed » est émis quand un créneau de cette fenêtre change d'état. Branchez-y une automatisation pour recevoir une notification. 0 désactive."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de lire le calendrier du club. Réessayez plus tard.",
+      "unknown": "Erreur inattendue."
+    },
+    "abort": {
+      "already_configured": "Le calendrier du club est déjà configuré.",
+      "reconfigure_successful": "Intervalle de relevé mis à jour."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "scan_interval": "Intervalle de relevé (minutes)",
+          "notify_within_days": "Prévenir pour les créneaux à moins de (jours)"
+        },
+        "data_description": {
+          "notify_within_days": "Un événement « escalade_veauche_slot_changed » est émis quand un créneau de cette fenêtre change d'état. Branchez-y une automatisation pour recevoir une notification. 0 désactive."
+        }
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Rafraîchir le calendrier",
+      "description": "Relève immédiatement le calendrier des créneaux, sans attendre le prochain cycle."
+    }
+  }
+}
