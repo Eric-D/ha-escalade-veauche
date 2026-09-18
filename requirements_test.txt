@@ -18,3 +18,9 @@ ruff~=0.16.0
 # greffon, pytest les collecte, ne les attend jamais, et les affiche en vert
 # sans avoir exécuté une seule assertion.
 pytest-asyncio>=0.24
+
+# Lu par test_translations.py, qui vérifie que services.yaml décrit bien les
+# services réellement enregistrés. Pas une dépendance de l'intégration : Home
+# Assistant lit ce fichier lui-même, et le déclarer dans le manifeste ferait
+# installer PyYAML chez l'utilisateur pour rien.
+pyyaml>=6.0
