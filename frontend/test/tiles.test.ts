@@ -68,10 +68,12 @@ describe('renderTile — mise en avant', () => {
     assert.equal(tile(session()).querySelector('.esc-tile.today'), null);
   });
 
-  test('une séance fermée est en retrait, même sans les statuts', () => {
-    // Sans ça, un soir fermé serait indiscernable d'un soir ouvert dès que
-    // l'utilisateur masque les statuts — c'est-à-dire par défaut.
-    assert.ok(tile(session({ open: false })).querySelector('.esc-tile.closed'));
+  test('une séance fermée se distingue sans les statuts', () => {
+    // Par la teinte de fond, et non plus par une opacité de retrait : cumuler
+    // les deux faisait tomber le texte secondaire sous 4,5:1.
+    const ferme = tile(session({ open: false }));
+    assert.ok(ferme.querySelector('.esc-tile.closed'));
+    assert.ok(ferme.querySelector('.esc-tile.tinted.status-closed'));
     assert.equal(tile(session({ open: true })).querySelector('.esc-tile.closed'), null);
   });
 });
@@ -213,6 +215,27 @@ describe('renderTile — accents par statut', () => {
       (host.querySelector('.esc-tile') as HTMLElement).getAttribute('style') ?? '',
       /--esc-accent:\s*var\(--success-color\)/
     );
+  });
+
+  test('la teinte de fond s’applique à toutes les tuiles, pas qu’à celle du jour', () => {
+    // La demande : le fond porte le statut sur chaque tuile. Seule la tuile du
+    // jour est renforcée, par l'intensité, pas par une couleur différente.
+    const avenir = tile(session({ open: true }));
+    assert.ok(avenir.querySelector('.esc-tile.tinted'));
+    assert.equal(avenir.querySelector('.esc-tile.today'), null);
+  });
+
+  test('un statut non reconnu ne reçoit aucune teinte', () => {
+    // Le teinter en ferait une troisième catégorie de créneau.
+    assert.equal(tile(session({ open: null })).querySelector('.esc-tile.tinted'), null);
+  });
+
+  test('la classe de statut accompagne la teinte, pour les replis', () => {
+    // Sans color-mix, la teinte ne peut pas être dérivée de l'accent : les
+    // replis statiques s'accrochent à ces classes.
+    assert.ok(tile(session({ open: true })).querySelector('.esc-tile.status-open'));
+    assert.ok(tile(session({ open: false })).querySelector('.esc-tile.status-closed'));
+    assert.ok(tile(session({ open: null })).querySelector('.esc-tile.status-unknown'));
   });
 
   test('l’accent est posé par tuile, pas sur la card', () => {

@@ -42,7 +42,18 @@ export const tilesStyles = css`
     flex-direction: column;
     padding: 10px;
     border-radius: 10px;
-    background: rgba(22, 22, 22, 0.62);
+    /* Accent assombri : la teinte se pose sous un texte clair, donc elle doit
+       rester sombre. Une couleur vive en fond ferait tomber le contraste du
+       gris secondaire sous le seuil. */
+    --esc-accent-dark: color-mix(in srgb, var(--esc-accent, #2196f3) 62%, black);
+    /* Les tuiles ordinaires ne reçoivent qu'une fraction de l'intensité : la
+       séance du jour doit rester la plus visible de la grille, et un seul
+       réglage vaut mieux que deux qu'il faudrait accorder. */
+    --esc-tile-alpha: calc(var(--esc-intensity, 0.88) * 0.4);
+    /* Le verre neutre reste en couleur de fond, la teinte est un calque
+       d'image par-dessus : sur une photo, remplacer le verre par la teinte
+       rendrait la tuile transparente et le texte illisible. */
+    background-color: rgba(22, 22, 22, 0.62);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     color: var(--primary-text-color);
@@ -50,21 +61,41 @@ export const tilesStyles = css`
        force la colonne à s'élargir et la grille déborde de la card. */
     min-width: 0;
   }
-  /* Une séance fermée reste lisible mais s'efface. L'opacité ne dépend pas de
-     « show_status » : sans elle, un soir fermé serait indiscernable d'un soir
-     ouvert dès que l'utilisateur masque les statuts — c'est-à-dire par
-     défaut. */
-  .esc-tile.closed {
-    opacity: 0.7;
+  /* Plus d'opacité de retrait sur les séances fermées : elle existait pour les
+     distinguer quand rien d'autre ne le faisait, et c'est désormais le rôle de
+     la teinte de fond. Cumuler les deux faisait tomber le texte secondaire à
+     4,39:1 sur une tuile fermée — sous le seuil de 4,5:1, et invisible à la
+     relecture puisque chaque effet est inoffensif pris seul.
+
+     Conséquence assumée : à « accent_intensity: 0 », plus rien ne distingue un
+     soir fermé sans activer « show_status ». C'est un réglage explicite, pas
+     un défaut. */
+  /* Teinte de fond, appliquée dès que le statut est connu. Un statut non
+     reconnu reste sur le verre neutre : lui donner une couleur en ferait une
+     troisième catégorie de créneau. */
+  .esc-tile.tinted {
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--esc-accent-dark) calc(var(--esc-tile-alpha) * 100%), transparent),
+      color-mix(in srgb, var(--esc-accent-dark) calc(var(--esc-tile-alpha) * 100%), transparent)
+    );
   }
   .esc-tile.today {
-    background: rgba(21, 97, 158, 0.88);
-    background: color-mix(
-      in srgb,
-      color-mix(in srgb, var(--esc-accent, #2196f3) 62%, black) 88%,
-      transparent
-    );
+    --esc-tile-alpha: var(--esc-intensity, 0.88);
     color: #fff;
+  }
+  /* Replis pour un navigateur sans color-mix — une WebView Android un peu
+     ancienne. Statiques, donc par statut : la teinte y est figée aux couleurs
+     du thème par défaut, mais la tuile du jour reste lisible. */
+  @supports not (background: color-mix(in srgb, red 50%, blue)) {
+    .esc-tile.today.status-open {
+      background-color: rgba(47, 109, 50, 0.88);
+    }
+    .esc-tile.today.status-closed {
+      background-color: rgba(151, 42, 33, 0.88);
+    }
+    .esc-tile.today.status-unknown {
+      background-color: rgba(21, 97, 158, 0.88);
+    }
   }
   .esc-weekday {
     font-weight: 500;
@@ -129,17 +160,15 @@ export const tilesStyles = css`
     background: currentColor;
     flex-shrink: 0;
   }
-  /* La pastille est une variante claire de l'accent : sur la tuile sombre,
-     l'accent brut passe sous 4,5:1. Deux déclarations, la seconde ignorée
-     sans color-mix — c'est tout l'intérêt de passer par une propriété
-     personnalisée plutôt que de composer la couleur en TypeScript. */
+  /* Variantes claires fixes, et non dérivées de l'accent : la couleur
+     configurable est celle du fond. Une pastille qui suivrait un accent choisi
+     très clair passerait sous 4,5:1 sur la tuile sombre, et rien ne le
+     signalerait. */
   .esc-status-open {
     color: #81c784;
-    color: color-mix(in srgb, var(--esc-accent, #4caf50) 65%, white);
   }
   .esc-status-closed {
     color: #ef9a9a;
-    color: color-mix(in srgb, var(--esc-accent, #f44336) 65%, white);
   }
   /* Sur l'accent foncé, les variantes claires tombent sous 4,5:1 : le blanc
      est le seul choix qui tienne le contraste, et le libellé porte déjà

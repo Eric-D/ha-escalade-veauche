@@ -57,6 +57,10 @@ export function renderTile({
         'esc-tile': true,
         today: session.isToday,
         closed: session.status === 'closed',
+        // La teinte ne s'applique qu'à un statut connu ; la classe de statut
+        // sert aux replis statiques, faute de pouvoir les dériver de l'accent.
+        tinted: session.status !== 'unknown',
+        [`status-${session.status}`]: true,
       })}
       style=${accent}
     >

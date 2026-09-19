@@ -91,6 +91,9 @@ export interface EscaladeConfig {
   accent_open?: string | number[];
   /** Idem pour une séance fermée. */
   accent_closed?: string | number[];
+  /** Force de la teinte de fond, 0 à 1. Les tuiles ordinaires en reçoivent une
+      fraction, la tuile du jour la totalité. 0 = aucune teinte. */
+  accent_intensity?: number;
 
   tap_action?: TapAction;
 }

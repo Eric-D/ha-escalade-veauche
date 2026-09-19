@@ -8,7 +8,14 @@ accent qui s'applique — d'où ces tests.
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { DEFAULT_ACCENTS, accentFor, normalizeColor } from '../src/helpers/accent.ts';
+import {
+  DEFAULT_ACCENTS,
+  DEFAULT_INTENSITY,
+  TILE_INTENSITY_RATIO,
+  accentFor,
+  normalizeColor,
+  normalizeIntensity,
+} from '../src/helpers/accent.ts';
 
 describe('normalizeColor — sélecteur de couleur', () => {
   test('convertit le triplet renvoyé par color_rgb', () => {
@@ -87,5 +94,41 @@ describe('accentFor', () => {
     // Lui donner une couleur choisie inviterait à le lire comme une troisième
     // catégorie de créneau, alors qu'il ne dit rien du club.
     assert.equal(accentFor('unknown', { open: '#00ff00', closed: '#ff0000' }), 'var(--primary-color)');
+  });
+});
+
+describe('normalizeIntensity', () => {
+  test('accepte les bornes et ce qu’il y a entre', () => {
+    assert.equal(normalizeIntensity(0), 0);
+    assert.equal(normalizeIntensity(1), 1);
+    assert.equal(normalizeIntensity(0.45), 0.45);
+    assert.equal(normalizeIntensity('0.5'), 0.5);
+  });
+
+  test('zéro n’est pas une absence', () => {
+    // Teinte nulle, tuiles neutres : un réglage légitime. Le confondre avec
+    // « non renseigné » ferait revenir la teinte par défaut, soit l'inverse de
+    // ce que l'utilisateur vient de demander.
+    assert.equal(normalizeIntensity(0), 0);
+    assert.notEqual(normalizeIntensity(0), undefined);
+  });
+
+  test('rejette ce qui sortirait de l’échelle', () => {
+    for (const value of [-0.1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 'beaucoup', {}]) {
+      assert.equal(normalizeIntensity(value), undefined, String(value));
+    }
+  });
+
+  test('l’absence reste l’absence', () => {
+    for (const value of [undefined, null, '']) {
+      assert.equal(normalizeIntensity(value), undefined, String(value));
+    }
+  });
+
+  test('la tuile du jour est plus marquée que les autres', () => {
+    // L'invariant de la grille : un seul réglage, et la séance du jour reste
+    // la plus visible. Le rapport est appliqué en CSS, il est déclaré ici.
+    assert.ok(TILE_INTENSITY_RATIO > 0 && TILE_INTENSITY_RATIO < 1);
+    assert.ok(DEFAULT_INTENSITY * TILE_INTENSITY_RATIO < DEFAULT_INTENSITY);
   });
 });

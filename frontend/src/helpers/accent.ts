@@ -62,3 +62,31 @@ export function accentFor(status: SlotStatus, config: AccentConfig): string {
     status === 'open' ? config.open : status === 'closed' ? config.closed : undefined;
   return dedicated ?? DEFAULT_ACCENTS[status];
 }
+
+/** Intensité par défaut de la teinte, reprise de la spécification.
+
+    C'est l'alpha de la tuile du jour. Les autres tuiles en reçoivent une
+    fraction — voir `TILE_INTENSITY_RATIO` — pour que la séance du jour reste
+    la plus visible de la grille sans avoir besoin d'un second réglage.
+*/
+export const DEFAULT_INTENSITY = 0.88;
+
+/** Part de l'intensité appliquée aux tuiles qui ne sont pas celle du jour.
+
+    Documenté ici et appliqué en CSS : une teinte de fond doit rester lisible
+    sous le texte, donc discrète. À 0,4, le vert et le rouge se distinguent au
+    premier coup d'œil sans que la tuile devienne un aplat.
+*/
+export const TILE_INTENSITY_RATIO = 0.4;
+
+/** Intensité exploitable, entre 0 et 1.
+
+    0 est une valeur légitime — plus aucune teinte, des tuiles neutres — donc
+    elle ne doit surtout pas être confondue avec « non renseigné ».
+*/
+export function normalizeIntensity(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 1) return undefined;
+  return value;
+}

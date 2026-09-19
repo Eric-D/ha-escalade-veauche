@@ -80,8 +80,9 @@ show_countdown: false         # "en cours" / "aujourd'hui" / "demain" / "dans N 
 show_status: false            # point coloré + "Ouvert" / "Fermé"
 background: /local/escalade.jpg   # photo dans config/www/ ; absent = fond uni
 overlay: 0.35                 # opacité du voile sombre sur la photo
-accent_open: var(--success-color)   # couleur des créneaux ouverts
-accent_closed: var(--error-color)   # couleur des créneaux fermés
+accent_open: var(--success-color)   # fond des créneaux ouverts
+accent_closed: var(--error-color)   # fond des créneaux fermés
+accent_intensity: 0.88              # force de la teinte, 0 à 1
 tap_action:
   action: more-info
 ```
@@ -89,10 +90,13 @@ tap_action:
 Les trois `show_*` sont à `false` par défaut : c'est la version la plus basse,
 on active ensuite ce qu'on veut. Tout activer monte la card à ~146 px.
 
-La séance du jour est mise en avant sur un fond teinté par **son statut** :
-vert si le club ouvre, rouge s'il ferme. Une séance fermée reste par ailleurs
-en retrait même quand les statuts sont masqués — sans quoi elle serait
-indiscernable d'une séance ouverte.
+**Chaque tuile a un fond teinté par son statut** : vert quand le club ouvre,
+rouge quand il ferme. La tuile du jour reçoit la teinte pleine, les autres une
+fraction, de sorte que la séance du jour reste la plus visible sans qu'il faille
+un second réglage. C'est ce qui permet de lire la semaine d'un coup d'œil, même
+avec les trois détails masqués.
+
+`accent_intensity` règle la force de la teinte, de `0` (tuiles neutres) à `1`.
 
 Les deux couleurs se règlent à la souris dans l'éditeur, avec un sélecteur de
 couleur. En YAML, préférez une variable de thème à un code hexadécimal : elle
@@ -103,9 +107,13 @@ suit le thème de l'utilisateur, là où `#4caf50` le fige.
 | `accent_open` | vert de succès | `var(--success-color)` |
 | `accent_closed` | rouge d'erreur | `var(--error-color)` |
 
-Non configurable : un créneau au statut non reconnu reste sur
-`var(--primary-color)`. Lui donner une couleur choisie inviterait à le lire
-comme une troisième catégorie de créneau, alors qu'il ne dit rien du club.
+Un créneau au statut non reconnu ne reçoit **aucune** teinte : lui en donner
+une en ferait une troisième catégorie de créneau, alors qu'il signifie
+seulement que la page du club n'a pas été comprise.
+
+Le point coloré de `show_status` garde, lui, des couleurs fixes : une pastille
+qui suivrait un accent clair passerait sous le seuil de contraste sur la tuile
+sombre. La couleur configurable est celle du fond.
 
 **Une séance disparaît dès que son horaire est passé**, pas à minuit : la card
 se rafraîchit chaque minute, ce qui lui permet aussi d'afficher « en cours »

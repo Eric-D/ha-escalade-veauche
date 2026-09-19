@@ -30,6 +30,7 @@ const EDITOR_LABELS: Record<string, string> = {
   overlay: 'Opacité du voile',
   accent_open: 'Couleur des créneaux ouverts',
   accent_closed: 'Couleur des créneaux fermés',
+  accent_intensity: 'Intensité de la teinte',
 };
 
 // Constante de module : si l'identité du tableau change à chaque rendu,
@@ -98,6 +99,10 @@ const EDITOR_SCHEMA = [
   // accepté et préférable.
   { name: 'accent_open', selector: { color_rgb: {} } },
   { name: 'accent_closed', selector: { color_rgb: {} } },
+  {
+    name: 'accent_intensity',
+    selector: { number: { min: 0, max: 1, step: 0.05, mode: 'slider' } },
+  },
 ] as const;
 
 const computeEditorLabel = (s: { name: string }): string => EDITOR_LABELS[s.name] ?? s.name;

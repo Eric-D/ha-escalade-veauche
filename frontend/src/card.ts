@@ -16,7 +16,8 @@ import {
   type Slot,
   type SlotStatus,
 } from './types.js';
-import { normalizeColor } from './helpers/accent.js';
+import { DEFAULT_INTENSITY, normalizeColor, normalizeIntensity } from './helpers/accent.js';
+import { buildShellStyle } from './helpers/shell.js';
 import { slotStatus } from './helpers/slot.js';
 import { RetryScheduler } from './helpers/retry.js';
 import { sessionAriaLabel, upcomingSessions } from './helpers/schedule.js';
@@ -123,6 +124,7 @@ export class EscaladeCard extends LitElement {
     const background = this._normalizeBackground(config.background);
     const accentOpen = this._normalizeAccent('accent_open', config.accent_open);
     const accentClosed = this._normalizeAccent('accent_closed', config.accent_closed);
+    const intensity = this._normalizeIntensity(config.accent_intensity);
 
     let max: number | undefined;
     if (config.max !== undefined) {
@@ -159,6 +161,7 @@ export class EscaladeCard extends LitElement {
       background,
       accent_open: accentOpen,
       accent_closed: accentClosed,
+      accent_intensity: intensity,
       // Les trois détails sont volontairement à false par défaut : c'est la
       // card la plus basse, l'utilisateur active ensuite ce qu'il veut.
       show_time: config.show_time === true,
@@ -300,6 +303,20 @@ export class EscaladeCard extends LitElement {
       return undefined;
     }
     return raw;
+  }
+
+  private _normalizeIntensity(raw: unknown): number {
+    const value = normalizeIntensity(raw);
+    if (value === undefined && raw !== undefined) {
+      ecLog(
+        'warn',
+        'card',
+        "'accent_intensity' doit être entre 0 et 1, repli sur %s (reçu : %o)",
+        DEFAULT_INTENSITY,
+        raw
+      );
+    }
+    return value ?? DEFAULT_INTENSITY;
   }
 
   /** Couleur d'accent, chaîne CSS ou triplet du sélecteur de couleur. */
@@ -632,16 +649,13 @@ export class EscaladeCard extends LitElement {
     const action = config?.tap_action?.action ?? 'more-info';
     const clickable = action !== 'none';
 
-    // Une seule propriété par valeur dynamique, toutes déclarées dans la
-    // feuille de styles : c'est ce qui permet d'y garder un repli statique
-    // pour `color-mix`, que styleMap ne saurait pas écrire.
-    const style = [
-      background ? `background-image:url("${background}")` : '',
-      config?.overlay !== undefined ? `--esc-overlay:${config.overlay}` : '',
-
-    ]
-      .filter(Boolean)
-      .join(';');
+    // Assemblé par un helper testable : ce fichier ne l'est pas, et une
+    // propriété perdue ici ne se voit qu'à l'écran.
+    const style = buildShellStyle({
+      background,
+      overlay: config?.overlay ?? 0.35,
+      intensity: config?.accent_intensity ?? DEFAULT_INTENSITY,
+    });
 
     const label = firstSession
       ? `Escalade : prochaine séance ${sessionAriaLabel(firstSession)}`

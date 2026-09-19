@@ -188,11 +188,12 @@ v1.0 (19 septembre 2026), voie A. Trois écarts volontaires, à ne pas
   l'adhérent ne retrouve pas sur la page du club lui ferait croire à une autre
   information. Le type `SlotStatus` reste ouvert si le club publie un jour
   « Complet ».
-- **L'opacité de retrait ne dépend pas de `show_status`.** La spécification la
-  rattache au statut. Comme les trois `show_*` sont à `false` par défaut, s'y
-  tenir rendrait un soir fermé strictement identique à un soir ouvert dans la
-  configuration par défaut — sur un calendrier où la moitié des créneaux sont
-  fermés, c'est la pire erreur possible.
+- **Pas d'opacité de retrait sur les séances fermées.** La spécification en
+  prévoit une à 0,7. Elle existait pour distinguer une séance fermée quand rien
+  d'autre ne le faisait ; depuis la 0.4, c'est la teinte de fond qui s'en
+  charge, et **cumuler les deux faisait tomber le texte secondaire à 4,39:1**,
+  sous le seuil. Chaque effet est inoffensif pris seul, ce qui rend le cumul
+  invisible à la relecture — il n'a été vu qu'en calculant les contrastes.
 - **`count` et `max` coexistent.** `count` (1–4) est le nombre de tuiles,
   `max` restait le plafond du mode liste. Les fusionner changerait le sens
   d'une configuration existante.
@@ -205,16 +206,33 @@ Ne pas réintroduire de repli commun : il n'a plus aucun utilisateur, et il
 rendrait `accentFor` dépendant d'un ordre de précédence que rien ne montre à
 l'écran.
 
-Deux points à ne pas défaire :
+Depuis la 0.4, la teinte porte sur **toutes** les tuiles, pas seulement celle
+du jour, et `accent_intensity` en règle la force. Un seul réglage et non deux :
+les tuiles ordinaires reçoivent `TILE_INTENSITY_RATIO` de l'intensité, la tuile
+du jour la totalité, ce qui garantit qu'elle reste la plus visible quel que
+soit le réglage. Deux curseurs indépendants permettraient de les inverser.
+
+Trois points à ne pas défaire :
 
 - **L'accent est posé par tuile, pas sur la card.** Deux séances de statuts
   différents dans la même grille portent deux couleurs ; une propriété posée
   sur la card les uniformiserait sans que le typage ne dise rien.
+- **La pastille de statut garde des couleurs fixes.** Elle a suivi l'accent le
+  temps de la 0.3 : un accent clair choisi au nuancier la faisait passer sous
+  4,5:1 sur la tuile sombre, sans que rien ne le signale. La couleur
+  configurable est celle du fond, qui porte du texte clair et reste donc
+  assombrie avant usage.
 - **La valeur passe par une propriété personnalisée**, jamais par une
   déclaration composée en TypeScript. C'est ce qui permet de garder dans la
   feuille de styles le repli statique de `color-mix` — `styleMap` ne sait
   poser qu'une valeur par propriété, donc un navigateur sans `color-mix`
   n'aurait plus rien à afficher.
+
+`buildShellStyle` (`helpers/shell.ts`) existe pour une seule raison : `card.ts`
+est hors d'atteinte du runner — décorateurs — et une propriété perdue dans
+l'assemblage du style ne casse ni le build ni le typage. La photo ou la teinte
+disparaissent simplement à l'écran. C'est arrivé une fois. **Ne pas réintégrer
+cet assemblage dans `card.ts`.**
 
 `normalizeColor` accepte deux formes parce que deux sources existent : une
 chaîne CSS venue du YAML, et le triplet `[r, g, b]` que renvoie le sélecteur
