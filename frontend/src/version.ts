@@ -1,4 +1,4 @@
-export const ESCALADE_CARD_VERSION = '0.4.0';
+export const ESCALADE_CARD_VERSION = '0.5.0';
 
 export function logBanner(): void {
   // console volontaire : c'est la convention des cartes Lovelace, et le bandeau
