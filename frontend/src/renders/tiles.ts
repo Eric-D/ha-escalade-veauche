@@ -111,6 +111,11 @@ export function renderTiles({
   `;
 }
 
+/** Titre optionnel, au-dessus de la grille. */
+export function renderTilesTitle(title: string): TemplateResult {
+  return html`<div class="esc-tiles-title">${title}</div>`;
+}
+
 /** Ligne unique quand il n'y a rien à montrer. Même fond, hauteur minimale. */
 export function renderTilesMessage(text: string): TemplateResult {
   return html`<div class="esc-tiles-empty">${text}</div>`;

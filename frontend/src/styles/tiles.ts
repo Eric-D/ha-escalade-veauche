@@ -32,6 +32,18 @@ export const tilesStyles = css`
     position: relative;
     padding: 12px;
   }
+  /* Discret par construction : ce mode existe pour gagner de la hauteur, et un
+     titre de la taille de celui du mode liste en reprendrait la moitié. */
+  .esc-tiles-title {
+    font-size: 13px;
+    line-height: 17px;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .esc-tiles {
     display: grid;
     grid-template-columns: repeat(var(--esc-columns, 3), minmax(0, 1fr));
@@ -176,9 +188,10 @@ export const tilesStyles = css`
   .esc-tile.today .esc-status {
     color: #fff;
   }
+  /* Sans padding : il vient de .esc-tiles-body, qui enveloppe désormais aussi
+     les messages. Le dupliquer ici doublerait les marges dès qu'un titre est
+     affiché au-dessus. */
   .esc-tiles-empty {
-    position: relative;
-    padding: 12px;
     font-size: 13px;
     line-height: 18px;
     color: var(--secondary-text-color);

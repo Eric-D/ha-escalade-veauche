@@ -75,6 +75,7 @@ type: custom:escalade-card
 entity: sensor.escalade_aujourd_hui
 mode: tiles
 count: 3                      # 1 à 4 tuiles
+show_title: false             # titre au-dessus des tuiles
 show_time: false              # "10h – 12h30"
 show_countdown: false         # "en cours" / "aujourd'hui" / "demain" / "dans N j"
 show_status: false            # point coloré + "Ouvert" / "Fermé"
@@ -87,8 +88,16 @@ tap_action:
   action: more-info
 ```
 
-Les trois `show_*` sont à `false` par défaut : c'est la version la plus basse,
-on active ensuite ce qu'on veut. Tout activer monte la card à ~146 px.
+Tous les `show_*` sont à `false` par défaut : c'est la version la plus basse,
+on active ensuite ce qu'on veut. Les trois détails de tuile montent la card à
+~146 px, et `show_title` ajoute ~25 px de plus — il reprend une partie du
+gain de hauteur qui justifie ce mode, d'où son absence par défaut.
+
+`show_title` affiche `title` s'il est renseigné, « Créneaux escalade » sinon.
+Ni compteur ni bouton ne reviennent avec lui, contrairement au mode liste.
+
+Le choix entre les deux modes se fait dans l'éditeur, champ **Mode
+d'affichage**, ou par la clé `mode` en YAML.
 
 **Chaque tuile a un fond teinté par son statut** : vert quand le club ouvre,
 rouge quand il ferme. La tuile du jour reçoit la teinte pleine, les autres une

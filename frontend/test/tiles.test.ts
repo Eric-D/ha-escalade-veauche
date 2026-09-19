@@ -8,7 +8,12 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { toSession } from '../src/helpers/schedule.ts';
-import { renderTile, renderTiles, renderTilesMessage } from '../src/renders/tiles.ts';
+import {
+  renderTile,
+  renderTiles,
+  renderTilesMessage,
+  renderTilesTitle,
+} from '../src/renders/tiles.ts';
 import type { Session } from '../src/types.ts';
 import { mount, slot, text } from './helpers.ts';
 
@@ -254,5 +259,19 @@ describe('renderTile — accents par statut', () => {
     const styles = [...host.querySelectorAll('.esc-tile')].map((n) => n.getAttribute('style') ?? '');
     assert.match(styles[0], /#00ff00/);
     assert.match(styles[1], /#ff0000/);
+  });
+});
+
+describe('renderTilesTitle', () => {
+  test('rend le titre qu’on lui donne', () => {
+    assert.equal(text(mount(renderTilesTitle('Mes créneaux')), '.esc-tiles-title'), 'Mes créneaux');
+  });
+
+  test('ne fabrique ni compteur ni bouton', () => {
+    // Le mode tuiles n'a ni l'un ni l'autre : les réintroduire avec le titre
+    // annulerait le gain de hauteur qui justifie ce mode.
+    const host = mount(renderTilesTitle('Mes créneaux'));
+    assert.equal(host.querySelector('.escalade-count'), null);
+    assert.equal(host.querySelector('button'), null);
   });
 });

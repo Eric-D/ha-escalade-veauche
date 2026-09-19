@@ -23,7 +23,7 @@ import { RetryScheduler } from './helpers/retry.js';
 import { sessionAriaLabel, upcomingSessions } from './helpers/schedule.js';
 import { renderHeader, renderLoader, renderStaleNotice } from './renders/chrome.js';
 import { renderSlotRow } from './renders/slot-row.js';
-import { renderTiles, renderTilesMessage } from './renders/tiles.js';
+import { renderTiles, renderTilesMessage, renderTilesTitle } from './renders/tiles.js';
 import { logBanner, ecLog } from './version.js';
 import { cardStyles } from './styles/card.js';
 import { tilesStyles } from './styles/tiles.js';
@@ -493,6 +493,16 @@ export class EscaladeCard extends LitElement {
     return this._tilesShell(renderTilesMessage(text), null);
   }
 
+  /** Titre affiché en mode tuiles, ou null s'il est masqué.
+
+      Masqué par défaut : ce mode existe pour gagner de la hauteur, et la
+      spécification dont il vient n'en prévoit pas. C'est un ajout, pas un
+      retour en arrière. */
+  private _tilesTitle(): string | null {
+    if (this._config?.show_title !== true) return null;
+    return this._config.title ?? 'Créneaux escalade';
+  }
+
   private _render(): TemplateResult {
     const title = this._config?.title ?? 'Créneaux escalade';
 
@@ -657,6 +667,7 @@ export class EscaladeCard extends LitElement {
       intensity: config?.accent_intensity ?? DEFAULT_INTENSITY,
     });
 
+    const title = this._tilesTitle();
     const label = firstSession
       ? `Escalade : prochaine séance ${sessionAriaLabel(firstSession)}`
       : 'Escalade : créneaux';
@@ -672,7 +683,10 @@ export class EscaladeCard extends LitElement {
         @keydown=${clickable ? this._handleKeydown : undefined}
       >
         ${background ? html`<div class="esc-veil"></div>` : nothing}
-        ${body}
+        <div class="esc-tiles-body">
+          ${title !== null ? renderTilesTitle(title) : nothing}
+          ${body}
+        </div>
       </ha-card>
     `;
   }
@@ -702,10 +716,7 @@ export class EscaladeCard extends LitElement {
             },
           });
 
-    return this._tilesShell(
-      sessions.length === 0 ? body : html`<div class="esc-tiles-body">${body}</div>`,
-      sessions[0] ?? null
-    );
+    return this._tilesShell(body, sessions[0] ?? null);
   }
 
   private _handleKeydown = (e: KeyboardEvent): void => {

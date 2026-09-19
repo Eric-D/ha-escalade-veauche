@@ -75,6 +75,9 @@ export interface EscaladeConfig {
   mode?: CardMode;
   /** Nombre de tuiles, 1 à 4. */
   count?: number;
+  /** Affiche le titre au-dessus des tuiles. Faux par défaut : le mode tuiles
+      existe pour gagner de la hauteur, et un titre en coûte. */
+  show_title?: boolean;
   /** « 10h – 12h30 » sous la date. */
   show_time?: boolean;
   /** « en cours » / « aujourd'hui » / « demain » / « dans N j ». */

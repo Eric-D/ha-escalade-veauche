@@ -17,8 +17,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 const EDITOR_LABELS: Record<string, string> = {
   entity: 'Entité (sensor)',
-  mode: 'Présentation',
-  title: 'Titre personnalisé (mode liste)',
+  mode: "Mode d'affichage",
+  title: 'Titre personnalisé',
+  show_title: 'Afficher le titre (mode tuiles)',
   days: 'Jours affichés',
   statuses: 'Statuts affichés',
   max: 'Nombre maximal de créneaux (mode liste)',
@@ -88,6 +89,7 @@ const EDITOR_SCHEMA = [
   // chaque rendu fait perdre le focus du champ en cours de saisie — le tableau
   // doit rester une constante de module.
   { name: 'count', selector: { number: { min: 1, max: 4, mode: 'box' } } },
+  { name: 'show_title', selector: { boolean: {} } },
   { name: 'show_time', selector: { boolean: {} } },
   { name: 'show_countdown', selector: { boolean: {} } },
   { name: 'show_status', selector: { boolean: {} } },
