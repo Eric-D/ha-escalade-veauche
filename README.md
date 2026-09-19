@@ -65,6 +65,40 @@ le même capteur.
 
 Le bouton ⟳ de l'en-tête appelle le service `escalade_veauche.refresh`.
 
+### Mode tuiles
+
+Pour un tableau de bord mural, où la hauteur est la ressource rare : trois
+tuiles calendrier, ni titre ni compteur, ~106 px au lieu de ~270.
+
+```yaml
+type: custom:escalade-card
+entity: sensor.escalade_aujourd_hui
+mode: tiles
+count: 3                      # 1 à 4 tuiles
+show_time: false              # "10h – 12h30"
+show_countdown: false         # "en cours" / "aujourd'hui" / "demain" / "dans N j"
+show_status: false            # point coloré + "Ouvert" / "Fermé"
+background: /local/escalade.jpg   # photo dans config/www/ ; absent = fond uni
+overlay: 0.35                 # opacité du voile sombre sur la photo
+accent: var(--primary-color)  # couleur de la tuile du jour
+tap_action:
+  action: more-info
+```
+
+Les trois `show_*` sont à `false` par défaut : c'est la version la plus basse,
+on active ensuite ce qu'on veut. Tout activer monte la card à ~146 px.
+
+La séance du jour est mise en avant sur fond accentué, et une séance fermée
+reste en retrait même quand les statuts sont masqués — sans quoi elle serait
+indiscernable d'une séance ouverte.
+
+**Une séance disparaît dès que son horaire est passé**, pas à minuit : la card
+se rafraîchit chaque minute, ce qui lui permet aussi d'afficher « en cours »
+pendant la séance et de basculer au passage de minuit sans rechargement.
+
+Les filtres `days` et `statuses` s'appliquent aussi en mode tuiles, avant le
+découpage à `count`.
+
 ## Être prévenu d'un changement
 
 L'intégration émet un événement `escalade_veauche_slot_changed` dès qu'un

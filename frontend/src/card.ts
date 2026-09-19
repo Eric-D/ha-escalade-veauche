@@ -1,35 +1,53 @@
-import { LitElement, html, type PropertyValues, type TemplateResult } from 'lit';
+import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 
 import {
+  ALL_MODES,
   ALL_STATUSES,
   ALL_WEEKDAYS,
+  MODE_ALIASES,
   STATUS_ALIASES,
   type CalendarAttributes,
+  type CardMode,
   type EscaladeConfig,
   type HassEntityState,
   type HassLike,
+  type Session,
   type Slot,
   type SlotStatus,
 } from './types.js';
 import { slotStatus } from './helpers/slot.js';
 import { RetryScheduler } from './helpers/retry.js';
+import { sessionAriaLabel, upcomingSessions } from './helpers/schedule.js';
 import { renderHeader, renderLoader, renderStaleNotice } from './renders/chrome.js';
 import { renderSlotRow } from './renders/slot-row.js';
+import { renderTiles, renderTilesMessage } from './renders/tiles.js';
 import { logBanner, ecLog } from './version.js';
 import { cardStyles } from './styles/card.js';
+import { tilesStyles } from './styles/tiles.js';
 
 import './editor.js';
 
 interface GridOptions {
   columns: number;
   min_columns: number;
-  rows: number;
+  // 'auto' en mode tuiles : la hauteur dépend des groupes de détails activés,
+  // et un nombre de rangées figé couperait la ligne basse ou laisserait un
+  // bandeau vide sous les tuiles.
+  rows: number | 'auto';
   min_rows: number;
 }
 
+/** Cadence de rafraîchissement du mode tuiles.
+
+    La minute est la granularité de « en cours » et du masquage d'une séance
+    dont l'horaire vient de passer. C'est aussi ce qui fait basculer la card au
+    passage de minuit sans attendre le prochain relevé de l'intégration, qui
+    n'a lieu qu'une fois par heure. */
+const TICK_MS = 60000;
+
 export class EscaladeCard extends LitElement {
-  static override styles = [cardStyles];
+  static override styles = [cardStyles, tilesStyles];
 
   @property({ attribute: false }) public set hass(value: HassLike | undefined) {
     this._hass = value;
@@ -64,6 +82,7 @@ export class EscaladeCard extends LitElement {
   private _renderedEntityState?: HassEntityState;
   private _lastTemplate?: TemplateResult;
   private _firstUpdateLogged = false;
+  private _tick: ReturnType<typeof setInterval> | null = null;
 
   public setConfig(config: EscaladeConfig): void {
     // Seule une configuration non-objet est bloquante. Tout le reste est
@@ -97,6 +116,11 @@ export class EscaladeCard extends LitElement {
 
     const statuses = this._normalizeStatuses(config.statuses);
     const days = this._normalizeDays(config.days);
+    const mode = this._normalizeMode(config.mode);
+    const count = this._normalizeCount(config.count);
+    const overlay = this._normalizeOverlay(config.overlay);
+    const background = this._normalizeBackground(config.background);
+    const accent = this._normalizeAccent(config.accent);
 
     let max: number | undefined;
     if (config.max !== undefined) {
@@ -111,16 +135,33 @@ export class EscaladeCard extends LitElement {
     ecLog(
       'info',
       'card',
-      '#%d setConfig accepté (entity=%s, jours=%s, statuts=%s) à t=%dms',
+      '#%d setConfig accepté (entity=%s, mode=%s, jours=%s, statuts=%s) à t=%dms',
       this._id,
       entity || '(vide)',
+      mode,
       days ? days.join(',') : 'tous',
       statuses ? statuses.join(',') : 'tous',
       Math.round(performance.now())
     );
 
     const previous = this._config;
-    this._config = { ...config, entity, days, statuses, max };
+    this._config = {
+      ...config,
+      entity,
+      days,
+      statuses,
+      max,
+      mode,
+      count,
+      overlay,
+      background,
+      accent,
+      // Les trois détails sont volontairement à false par défaut : c'est la
+      // card la plus basse, l'utilisateur active ensuite ce qu'il veut.
+      show_time: config.show_time === true,
+      show_countdown: config.show_countdown === true,
+      show_status: config.show_status === true,
+    };
 
     // Changer d'entité invalide tout ce qui a été rendu jusqu'ici : sans ce
     // reset, _render() renverrait _lastTemplate — les créneaux de l'ancienne
@@ -205,6 +246,70 @@ export class EscaladeCard extends LitElement {
     return valid;
   }
 
+  private _normalizeMode(raw: unknown): CardMode {
+    if (raw === undefined) return 'list';
+    const aliased = MODE_ALIASES[String(raw)] ?? raw;
+    if (ALL_MODES.includes(aliased as CardMode)) return aliased as CardMode;
+    ecLog(
+      'warn',
+      'card',
+      "Mode '%s' inconnu, repli sur 'list'. Modes valides : %s",
+      raw,
+      ALL_MODES.join(', ')
+    );
+    return 'list';
+  }
+
+  private _normalizeCount(raw: unknown): number {
+    if (raw === undefined) return 3;
+    const value = Number(raw);
+    // Plafonné à 4 : au-delà, les tuiles passent sous la largeur où le numéro
+    // du jour et l'horaire restent lisibles sur une card de tableau de bord.
+    if (!Number.isInteger(value) || value < 1 || value > 4) {
+      ecLog('warn', 'card', "'count' doit être un entier de 1 à 4, repli sur 3 (reçu : %o)", raw);
+      return 3;
+    }
+    return value;
+  }
+
+  private _normalizeOverlay(raw: unknown): number {
+    if (raw === undefined) return 0.35;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0 || value > 1) {
+      ecLog('warn', 'card', "'overlay' doit être entre 0 et 1, repli sur 0.35 (reçu : %o)", raw);
+      return 0.35;
+    }
+    return value;
+  }
+
+  /** Chemin de la photo de fond, ou undefined.
+
+      Filtré par liste blanche, et c'est la garde qui compte : la valeur part
+      dans `background-image: url(...)`. Une chaîne contenant une parenthèse,
+      une apostrophe ou un point-virgule permettrait d'y refermer la fonction
+      et d'écrire d'autres déclarations. Le navigateur n'exécute pas de script
+      depuis du CSS, mais rien n'oblige à laisser une carte repeindre le reste
+      du tableau de bord. */
+  private _normalizeBackground(raw: unknown): string | undefined {
+    if (raw === undefined || raw === 'none' || raw === '') return undefined;
+    if (typeof raw !== 'string' || !/^[\w\-./:%?&=+@,~#]+$/.test(raw)) {
+      ecLog('warn', 'card', "'background' ignoré : chemin inattendu (%o)", raw);
+      return undefined;
+    }
+    return raw;
+  }
+
+  /** Couleur d'accent. Les parenthèses sont admises — `var()`, `rgb()` — mais
+      pas ce qui permettrait de sortir de la déclaration. */
+  private _normalizeAccent(raw: unknown): string | undefined {
+    if (raw === undefined) return undefined;
+    if (typeof raw !== 'string' || /[;{}<>]/.test(raw) || raw.length > 120) {
+      ecLog('warn', 'card', "'accent' ignoré : valeur inattendue (%o)", raw);
+      return undefined;
+    }
+    return raw;
+  }
+
   /** Résout l'état suivi à partir de la config et du hass courants. */
   private _syncEntityState(): void {
     const states = this._hass?.states;
@@ -241,12 +346,21 @@ export class EscaladeCard extends LitElement {
     return document.createElement('escalade-card-editor');
   }
 
+  private get _detailsShown(): boolean {
+    const config = this._config;
+    return !!(config?.show_time || config?.show_countdown || config?.show_status);
+  }
+
   public getCardSize(): number {
-    return 4;
+    if (this._config?.mode !== 'tiles') return 4;
+    return this._detailsShown ? 3 : 2;
   }
 
   public getGridOptions(): GridOptions {
-    return { columns: 12, min_columns: 6, rows: 4, min_rows: 2 };
+    if (this._config?.mode !== 'tiles') {
+      return { columns: 12, min_columns: 6, rows: 4, min_rows: 2 };
+    }
+    return { columns: 12, min_columns: 6, rows: 'auto', min_rows: 1 };
   }
 
   public override connectedCallback(): void {
@@ -272,12 +386,26 @@ export class EscaladeCard extends LitElement {
         this.requestUpdate();
       });
     }
+
+    // Posé ici et non dans setConfig : le mode peut changer sans que l'élément
+    // soit reconnecté, et un timer par changement de configuration finirait par
+    // en laisser plusieurs. La garde de mode est dans le tick, où elle ne coûte
+    // rien.
+    this._tick ??= setInterval(() => {
+      if (this._config?.mode === 'tiles') this.requestUpdate();
+    }, TICK_MS);
   }
 
   public override disconnectedCallback(): void {
     super.disconnectedCallback();
-    // Aucun timer lié à un élément ne doit survivre à son détachement.
+    // Aucun timer lié à un élément ne doit survivre à son détachement : une
+    // vue changée cent fois laisserait cent intervalles à réveiller la carte
+    // chaque minute.
     this._retry.cancel();
+    if (this._tick !== null) {
+      clearInterval(this._tick);
+      this._tick = null;
+    }
   }
 
   protected override updated(): void {
@@ -334,19 +462,31 @@ export class EscaladeCard extends LitElement {
     }
   }
 
+  /** Message d'attente ou d'indisponibilité, dans l'habillage du mode courant.
+
+      Le mode tuiles n'a ni en-tête ni compteur : y afficher le loader de la
+      liste ferait sauter la card de 60 à 270 px à chaque coupure, ce qui
+      déplace toutes les cards voisines d'un tableau de bord en maçonnerie. */
+  private _message(title: string, text: string): TemplateResult {
+    if (this._config?.mode !== 'tiles') {
+      return renderLoader({ title, message: text });
+    }
+    return this._tilesShell(renderTilesMessage(text), null);
+  }
+
   private _render(): TemplateResult {
     const title = this._config?.title ?? 'Créneaux escalade';
 
     if (!this._config) {
-      return renderLoader({ title, message: 'En attente de configuration…' });
+      return this._message(title, 'En attente de configuration…');
     }
     if (!this._hass) {
-      return renderLoader({ title, message: 'Connexion à Home Assistant…' });
+      return this._message(title, 'Connexion à Home Assistant…');
     }
 
     const entityId = this._config.entity;
     if (!entityId) {
-      return renderLoader({ title, message: 'Sélectionnez une entité' });
+      return this._message(title, 'Sélectionnez une entité');
     }
 
     const states = this._hass.states;
@@ -357,12 +497,9 @@ export class EscaladeCard extends LitElement {
       // de retries, afficher indéfiniment le dernier rendu ferait passer des
       // créneaux périmés pour à jour.
       if (!this._retry.exhausted) {
-        return (
-          this._lastTemplate ??
-          renderLoader({ title, message: 'En attente de Home Assistant…' })
-        );
+        return this._lastTemplate ?? this._message(title, 'En attente de Home Assistant…');
       }
-      return renderLoader({ title, message: 'Données Home Assistant indisponibles' });
+      return this._message(title, 'Données Home Assistant indisponibles');
     }
 
     const state = states[entityId];
@@ -380,7 +517,7 @@ export class EscaladeCard extends LitElement {
       if (this._hasRendered && !this._retry.exhausted) {
         // Indisponibilité brève : garder le dernier rendu évite un
         // clignotement à chaque rechargement de l'intégration.
-        return this._lastTemplate ?? renderLoader({ title });
+        return this._lastTemplate ?? this._message(title, 'Chargement…');
       }
       if (this._hasRendered) {
         // Quota épuisé — environ 100 s d'indisponibilité continue. Continuer
@@ -392,16 +529,20 @@ export class EscaladeCard extends LitElement {
         // Texte neutre : la carte ne connaît pas la cause. Spéculer enverrait
         // chercher au mauvais endroit, par exemple après un simple redémarrage
         // un peu lent.
-        return renderLoader({ title, message: `${entityId} indisponible` });
+        return this._message(title, this._config?.mode === 'tiles'
+          ? 'Créneaux indisponibles'
+          : `${entityId} indisponible`);
       }
       // Une fois le quota épuisé, plus rien ne relancera la carte de lui-même :
       // un spinner perpétuel ferait croire à un chargement en cours.
-      this._lastTemplate = renderLoader({
+      this._lastTemplate = this._message(
         title,
-        message: this._retry.exhausted
-          ? `Données indisponibles pour ${entityId}`
-          : 'En attente des données…',
-      });
+        this._retry.exhausted
+          ? this._config?.mode === 'tiles'
+            ? 'Créneaux indisponibles'
+            : `Données indisponibles pour ${entityId}`
+          : 'En attente des données…'
+      );
       return this._lastTemplate;
     }
 
@@ -417,11 +558,14 @@ export class EscaladeCard extends LitElement {
         "%s ne porte pas « creneaux » : ce n'est pas un capteur de cette intégration",
         entityId
       );
-      return renderLoader({ title, message: `${entityId} n'est pas un capteur Escalade` });
+      return this._message(title, `${entityId} n'est pas un capteur Escalade`);
     }
 
     this._retry.reset();
-    const tpl = this._renderCalendar(state, title);
+    const tpl =
+      this._config.mode === 'tiles'
+        ? this._renderTilesMode(state)
+        : this._renderCalendar(state, title);
     this._lastTemplate = tpl;
     this._hasRendered = true;
     return tpl;
@@ -471,6 +615,117 @@ export class EscaladeCard extends LitElement {
       </ha-card>
     `;
   }
+
+  /** Enveloppe commune du mode tuiles : photo, voile, accent, action au tap.
+
+      `aria-label` n'est posé que si la card est réellement cliquable : un
+      libellé sur un élément inerte s'annonce quand même au lecteur d'écran, en
+      promettant une action qui n'existe pas. */
+  private _tilesShell(
+    body: TemplateResult,
+    firstSession: Session | null
+  ): TemplateResult {
+    const config = this._config;
+    const background = config?.background;
+    const action = config?.tap_action?.action ?? 'more-info';
+    const clickable = action !== 'none';
+
+    // Une seule propriété par valeur dynamique, toutes déclarées dans la
+    // feuille de styles : c'est ce qui permet d'y garder un repli statique
+    // pour `color-mix`, que styleMap ne saurait pas écrire.
+    const style = [
+      background ? `background-image:url("${background}")` : '',
+      config?.overlay !== undefined ? `--esc-overlay:${config.overlay}` : '',
+      config?.accent ? `--esc-accent:${config.accent}` : '',
+    ]
+      .filter(Boolean)
+      .join(';');
+
+    const label = firstSession
+      ? `Escalade : prochaine séance ${sessionAriaLabel(firstSession)}`
+      : 'Escalade : créneaux';
+
+    return html`
+      <ha-card
+        class="esc-tiles-card ${clickable ? 'clickable' : ''}"
+        style=${style}
+        role=${clickable ? 'button' : 'presentation'}
+        tabindex=${clickable ? '0' : '-1'}
+        aria-label=${clickable ? label : ''}
+        @click=${clickable ? this._handleTap : undefined}
+        @keydown=${clickable ? this._handleKeydown : undefined}
+      >
+        ${background ? html`<div class="esc-veil"></div>` : nothing}
+        ${body}
+      </ha-card>
+    `;
+  }
+
+  private _renderTilesMode(state: HassEntityState): TemplateResult {
+    const attrs = (state.attributes ?? {}) as CalendarAttributes;
+    const slots = Array.isArray(attrs.creneaux) ? attrs.creneaux : [];
+    const count = this._config?.count ?? 3;
+
+    // `new Date()` à chaque rendu, jamais mémorisé : c'est le tick qui fait
+    // avancer l'heure, et une valeur capturée à la construction figerait
+    // « en cours » pour toute la vie de la card.
+    const sessions = upcomingSessions(this._visibleSlots(slots), new Date(), count);
+
+    const body =
+      sessions.length === 0
+        ? renderTilesMessage('Aucune séance à venir')
+        : renderTiles({
+            sessions,
+            columns: count,
+            showTime: this._config?.show_time === true,
+            showCountdown: this._config?.show_countdown === true,
+            showStatus: this._config?.show_status === true,
+          });
+
+    return this._tilesShell(
+      sessions.length === 0 ? body : html`<div class="esc-tiles-body">${body}</div>`,
+      sessions[0] ?? null
+    );
+  }
+
+  private _handleKeydown = (e: KeyboardEvent): void => {
+    // Entrée et Espace, comme un vrai bouton : sans ça, `role="button"` promet
+    // au lecteur d'écran une interaction qu'aucun clavier ne peut déclencher.
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    this._handleTap();
+  };
+
+  private _handleTap = (): void => {
+    const config = this._config;
+    const action = config?.tap_action?.action ?? 'more-info';
+    if (action === 'none' || !config) return;
+
+    if (action === 'url') {
+      const url = config.tap_action?.url_path;
+      // noopener : sans lui, la page ouverte garde une référence sur celle de
+      // Home Assistant par window.opener.
+      if (url) window.open(url, '_blank', 'noopener');
+      return;
+    }
+    if (action === 'navigate') {
+      const path = config.tap_action?.navigation_path;
+      if (!path) return;
+      history.pushState(null, '', path);
+      // L'événement est ce qui fait réagir le routeur de Home Assistant :
+      // pushState seul change l'URL sans changer la vue.
+      window.dispatchEvent(new CustomEvent('location-changed', { bubbles: true, composed: true }));
+      return;
+    }
+    if (!config.entity) return;
+    this.dispatchEvent(
+      new CustomEvent('hass-more-info', {
+        detail: { entityId: config.entity },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  };
 
   private _refresh = (): void => {
     if (!this._hass) return;

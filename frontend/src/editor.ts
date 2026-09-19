@@ -17,10 +17,18 @@ const STATUS_LABELS: Record<string, string> = {
 
 const EDITOR_LABELS: Record<string, string> = {
   entity: 'Entité (sensor)',
-  title: 'Titre personnalisé',
+  mode: 'Présentation',
+  title: 'Titre personnalisé (mode liste)',
   days: 'Jours affichés',
   statuses: 'Statuts affichés',
-  max: 'Nombre maximal de créneaux',
+  max: 'Nombre maximal de créneaux (mode liste)',
+  count: 'Nombre de tuiles (mode tuiles)',
+  show_time: "Afficher l'horaire",
+  show_countdown: 'Afficher le délai',
+  show_status: 'Afficher le statut',
+  background: 'Photo de fond (mode tuiles)',
+  overlay: 'Opacité du voile',
+  accent: "Couleur d'accent",
 };
 
 // Constante de module : si l'identité du tableau change à chaque rendu,
@@ -31,6 +39,18 @@ const EDITOR_SCHEMA = [
     name: 'entity',
     required: true,
     selector: { entity: { domain: 'sensor', integration: 'escalade_veauche' } },
+  },
+  {
+    name: 'mode',
+    selector: {
+      select: {
+        mode: 'dropdown',
+        options: [
+          { value: 'list', label: 'Liste (une ligne par créneau)' },
+          { value: 'tiles', label: 'Tuiles calendrier (compact)' },
+        ],
+      },
+    },
   },
   { name: 'title', selector: { text: {} } },
   {
@@ -61,6 +81,17 @@ const EDITOR_SCHEMA = [
     },
   },
   { name: 'max', selector: { number: { min: 1, max: 60, mode: 'box' } } },
+  // Les trois interrupteurs restent visibles en mode liste : ha-form n'affiche
+  // pas conditionnellement sans un schéma calculé, et recalculer le schéma à
+  // chaque rendu fait perdre le focus du champ en cours de saisie — le tableau
+  // doit rester une constante de module.
+  { name: 'count', selector: { number: { min: 1, max: 4, mode: 'box' } } },
+  { name: 'show_time', selector: { boolean: {} } },
+  { name: 'show_countdown', selector: { boolean: {} } },
+  { name: 'show_status', selector: { boolean: {} } },
+  { name: 'background', selector: { text: {} } },
+  { name: 'overlay', selector: { number: { min: 0, max: 1, step: 0.05, mode: 'slider' } } },
+  { name: 'accent', selector: { text: {} } },
 ] as const;
 
 const computeEditorLabel = (s: { name: string }): string => EDITOR_LABELS[s.name] ?? s.name;
@@ -126,6 +157,10 @@ export class EscaladeCardEditor extends LitElement {
           .filter((value) => Number.isInteger(value));
       }
       const v = next[key];
+      // `0` est légitime pour overlay — voile transparent — et `false` l'est
+      // pour les trois interrupteurs. Un test de véracité les supprimerait,
+      // et la carte reprendrait ses défauts : voile à 0,35 sur une photo que
+      // l'utilisateur vient justement de vouloir nette.
       if (v === '' || v === undefined || v === null) delete next[key];
       if (Array.isArray(v) && v.length === 0) delete next[key];
     }

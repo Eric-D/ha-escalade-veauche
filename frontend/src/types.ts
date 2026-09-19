@@ -35,6 +35,31 @@ export const WEEKDAY_LABELS: readonly string[] = [
   'Dimanche',
 ] as const;
 
+/** `list` : une ligne par créneau, avec en-tête et compteur.
+    `tiles` : trois tuiles calendrier, sans en-tête ni compteur, pour un
+    tableau de bord mural où la hauteur est la ressource rare. */
+export type CardMode = 'list' | 'tiles';
+
+export const ALL_MODES: readonly CardMode[] = ['list', 'tiles'] as const;
+
+// Alias acceptés pour les vieux tableaux de bord. Ne JAMAIS en retirer un :
+// une carte encore en YAML casserait avec « Erreur de configuration ».
+export const MODE_ALIASES: Record<string, CardMode> = {
+  liste: 'list',
+  tuiles: 'tiles',
+};
+
+/** Action au tap, sous-ensemble du vocabulaire Home Assistant.
+
+    `call-service` et `toggle` sont volontairement absents : cette carte est en
+    lecture seule, et une action qui écrit n'a rien à faire sur un calendrier
+    qu'on ne contrôle pas. */
+export interface TapAction {
+  action: 'more-info' | 'navigate' | 'url' | 'none';
+  navigation_path?: string;
+  url_path?: string;
+}
+
 export interface EscaladeConfig {
   type?: string;
   entity: string;
@@ -43,8 +68,56 @@ export interface EscaladeConfig {
   days?: number[];
   /** Statuts affichés. Absent = tous. */
   statuses?: SlotStatus[];
-  /** Nombre maximal de créneaux affichés. Absent = pas de limite. */
+  /** Nombre maximal de créneaux affichés, mode `list`. Absent = pas de limite. */
   max?: number;
+
+  // --- mode `tiles` ---
+  mode?: CardMode;
+  /** Nombre de tuiles, 1 à 4. */
+  count?: number;
+  /** « 10h – 12h30 » sous la date. */
+  show_time?: boolean;
+  /** « en cours » / « aujourd'hui » / « demain » / « dans N j ». */
+  show_countdown?: boolean;
+  /** Point coloré + libellé de statut. */
+  show_status?: boolean;
+  /** Photo de fond, p. ex. `/local/escalade.jpg`. `none` ou absent = fond uni. */
+  background?: string;
+  /** Opacité du voile sombre sur la photo, 0 à 1. */
+  overlay?: number;
+  /** Couleur de base de la tuile du jour. */
+  accent?: string;
+  tap_action?: TapAction;
+}
+
+/** Bornes d'une séance, en minutes depuis minuit. */
+export interface TimeRange {
+  start: number;
+  end: number;
+}
+
+/** Une séance prête à afficher.
+
+    `start` et `end` sont des `Date` **locales** construites à partir du jour
+    civil et de l'horaire : elles ne servent qu'aux comparaisons
+    intra-journalières (séance en cours, séance terminée), que l'intégration ne
+    peut pas faire — elle ne relève le calendrier qu'une fois par heure.
+    `daysUntil` reste, lui, celui calculé par Python. */
+export interface Session {
+  date: string;
+  weekday: number;
+  dayOfMonth: number;
+  /** 0 = janvier. */
+  month: number;
+  start: Date;
+  /** null quand le club n'annonce pas d'horaire pour ce jour. */
+  end: Date | null;
+  range: TimeRange | null;
+  status: SlotStatus;
+  statut: string;
+  daysUntil: number | null;
+  isToday: boolean;
+  isNow: boolean;
 }
 
 /** Un créneau tel que l'intégration le sert.

@@ -140,6 +140,33 @@ signatures à plusieurs paramètres passent par un objet nommé
 signature positionnelle s'inversent sans que le typage ni le linter ne disent
 rien.
 
+### Le mode tuiles recalcule le nombre de jours — et c'est voulu
+
+`helpers/schedule.ts` **ignore `days_left`** et recompte à partir de la date
+civile, avec l'horloge du navigateur. C'est une exception à la règle ci-dessous,
+pas un oubli, et elle a une cause précise.
+
+L'intégration ne relève le calendrier qu'une fois par heure. Entre minuit et le
+relevé suivant, `days_left` est périmé d'un jour : la séance du soir même
+s'annoncerait « demain » jusqu'à 1 h du matin. Le mode liste s'en accommode,
+les tuiles non — la spécification exige qu'elles basculent à minuit sans
+rechargement, et qu'elles affichent « en cours » à la minute. Les deux
+imposent l'horloge locale.
+
+La contrepartie, assumée : sur un appareil dont le fuseau diffère de celui de
+Home Assistant, les tuiles comptent les jours dans le fuseau de l'appareil.
+Pour la tablette murale visée, c'est le comportement recherché.
+
+**Ne pas « corriger » cette exception en rebranchant `days_left`** : le test
+`bascule à minuit sans nouvelle donnée` (`test/schedule.test.ts`) tombe, et le
+critère d'acceptation de la spécification avec lui.
+
+Le filtrage, lui, porte sur la **fin** de la séance et non sur le jour : une
+séance de 10 h à 12 h 30 disparaît à 12 h 31, pas à minuit. C'est ce que fait
+`upcomingSessions`, et c'est la raison d'être du `setInterval` d'une minute
+posé dans `connectedCallback` — annulé dans `disconnectedCallback`, comme tout
+timer de cette carte.
+
 ### Les indices de jour ne se recalculent pas côté carte
 
 `weekday` vient de `datetime.weekday()` : **0 = lundi**. `Date.getDay()` compte
@@ -147,6 +174,36 @@ rien.
 filtre « jours affichés » d'un rang, et rien — ni `tsc`, ni oxlint, ni un
 coup d'œil sur la carte — ne le dirait. Même règle que `days_left`, qui dépend
 du fuseau configuré dans Home Assistant et non de celui du navigateur.
+
+## Le mode tuiles et sa spécification
+
+Le mode `tiles` implémente la spécification « Card Escalade : tuiles jour »
+v1.0 (19 septembre 2026), voie A. Trois écarts volontaires, à ne pas
+« rattraper » sans relire ce qui suit.
+
+- **« Fermé », pas « Annulé ».** La spécification prévoit `full` → « Complet »
+  et `cancelled` → « Annulé ». Le site du club ne connaît que « Ouvert » et
+  « Fermé » : c'est donc « Fermé » qui s'affiche, avec le rendu prévu pour une
+  séance annulée — variante rouge et tuile à 0,7 d'opacité. Un libellé que
+  l'adhérent ne retrouve pas sur la page du club lui ferait croire à une autre
+  information. Le type `SlotStatus` reste ouvert si le club publie un jour
+  « Complet ».
+- **L'opacité de retrait ne dépend pas de `show_status`.** La spécification la
+  rattache au statut. Comme les trois `show_*` sont à `false` par défaut, s'y
+  tenir rendrait un soir fermé strictement identique à un soir ouvert dans la
+  configuration par défaut — sur un calendrier où la moitié des créneaux sont
+  fermés, c'est la pire erreur possible.
+- **`count` et `max` coexistent.** `count` (1–4) est le nombre de tuiles,
+  `max` restait le plafond du mode liste. Les fusionner changerait le sens
+  d'une configuration existante.
+
+Non implémenté, conformément à la spécification qui le classe en P2 : le fond
+SVG « mur d'escalade » dessiné, à ne produire que si aucune photo n'est
+fournie. Sans `background`, la card retombe sur le fond uni du thème.
+
+Les actions par séance (`url` de réservation) ne sont pas câblées : la page du
+club n'expose ni lien ni libellé par créneau, donc le contrat `Session` les
+laisse de côté plutôt que d'inventer un champ vide.
 
 ## Délais et fuseau horaire
 
