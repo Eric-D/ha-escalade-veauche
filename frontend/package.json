@@ -1,6 +1,6 @@
 {
   "name": "escalade-card-frontend",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Lovelace card sources for ha-escalade-veauche",
   "private": true,
   "type": "module",
