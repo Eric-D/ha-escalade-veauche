@@ -28,6 +28,7 @@ const tile = (s: Session, opts = {}) =>
       showTime: false,
       showCountdown: false,
       showStatus: false,
+      accents: {},
       ...opts,
     })
   );
@@ -130,7 +131,14 @@ describe('renderTiles', () => {
 
   test('une tuile par séance', () => {
     const host = mount(
-      renderTiles({ sessions: trois, columns: 3, showTime: false, showCountdown: false, showStatus: false })
+      renderTiles({
+        sessions: trois,
+        columns: 3,
+        showTime: false,
+        showCountdown: false,
+        showStatus: false,
+        accents: {},
+      })
     );
     assert.equal(host.querySelectorAll('.esc-tile').length, 3);
   });
@@ -146,6 +154,7 @@ describe('renderTiles', () => {
         showTime: false,
         showCountdown: false,
         showStatus: false,
+        accents: {},
       })
     );
     assert.equal(host.querySelectorAll('.esc-tile').length, 2);
@@ -155,7 +164,14 @@ describe('renderTiles', () => {
 
   test('l’ordre reçu est l’ordre rendu', () => {
     const host = mount(
-      renderTiles({ sessions: trois, columns: 3, showTime: false, showCountdown: false, showStatus: false })
+      renderTiles({
+        sessions: trois,
+        columns: 3,
+        showTime: false,
+        showCountdown: false,
+        showStatus: false,
+        accents: {},
+      })
     );
     const jours = [...host.querySelectorAll('.esc-daynum')].map((n) => n.textContent?.trim());
     assert.deepEqual(jours, ['19', '25', '3']);
@@ -173,5 +189,47 @@ describe('renderTilesMessage', () => {
   test('aucune tuile, donc aucune grille', () => {
     const host = mount(renderTilesMessage('Aucune séance à venir'));
     assert.equal(host.querySelector('.esc-tiles'), null);
+  });
+});
+
+describe('renderTile — accents par statut', () => {
+  test('la tuile porte la couleur de son statut', () => {
+    const accents = { open: '#00ff00', closed: '#ff0000' };
+    const ouvert = tile(session({ open: true }), { accents });
+    const ferme = tile(session({ open: false }), { accents });
+    assert.match(
+      (ouvert.querySelector('.esc-tile') as HTMLElement).getAttribute('style') ?? '',
+      /--esc-accent:\s*#00ff00/
+    );
+    assert.match(
+      (ferme.querySelector('.esc-tile') as HTMLElement).getAttribute('style') ?? '',
+      /--esc-accent:\s*#ff0000/
+    );
+  });
+
+  test('sans réglage, la tuile porte le jeton du thème', () => {
+    const host = tile(session({ open: true }));
+    assert.match(
+      (host.querySelector('.esc-tile') as HTMLElement).getAttribute('style') ?? '',
+      /--esc-accent:\s*var\(--success-color\)/
+    );
+  });
+
+  test('l’accent est posé par tuile, pas sur la card', () => {
+    // Deux séances de statuts différents dans la même grille doivent porter
+    // deux couleurs : une propriété posée sur la card les uniformiserait.
+    const host = mount(
+      renderTiles({
+        sessions: [session({ open: true }), session({ date: '2026-10-03', open: false })],
+        columns: 3,
+        showTime: false,
+        showCountdown: false,
+        showStatus: false,
+        accents: { open: '#00ff00', closed: '#ff0000' },
+      })
+    );
+    const styles = [...host.querySelectorAll('.esc-tile')].map((n) => n.getAttribute('style') ?? '');
+    assert.match(styles[0], /#00ff00/);
+    assert.match(styles[1], /#ff0000/);
   });
 });

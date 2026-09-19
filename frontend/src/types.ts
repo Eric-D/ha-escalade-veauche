@@ -85,8 +85,13 @@ export interface EscaladeConfig {
   background?: string;
   /** Opacité du voile sombre sur la photo, 0 à 1. */
   overlay?: number;
-  /** Couleur de base de la tuile du jour. */
-  accent?: string;
+  /** Couleur de la tuile du jour et du statut, pour une séance ouverte.
+      Chaîne CSS (`var(--success-color)`, `#4caf50`) ou triplet `[r, g, b]`
+      tel que le renvoie le sélecteur de couleur de Home Assistant. */
+  accent_open?: string | number[];
+  /** Idem pour une séance fermée. */
+  accent_closed?: string | number[];
+
   tap_action?: TapAction;
 }
 

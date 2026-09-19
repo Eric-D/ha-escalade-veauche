@@ -2,6 +2,7 @@
 import { html, nothing, type TemplateResult } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 
+import { accentFor, type AccentConfig } from '../helpers/accent.js';
 import {
   MONTH_SHORT,
   WEEKDAY_SHORT,
@@ -26,6 +27,7 @@ export interface TileOptions {
   showTime: boolean;
   showCountdown: boolean;
   showStatus: boolean;
+  accents: AccentConfig;
 }
 
 export function renderTile({
@@ -33,6 +35,7 @@ export function renderTile({
   showTime,
   showCountdown,
   showStatus,
+  accents,
 }: TileOptions): TemplateResult {
   const hours = formatTimeRange(session.range);
   const countdown = countdownLabel(session);
@@ -42,6 +45,12 @@ export function renderTile({
   const showsStatus = showStatus && statusLabel !== undefined;
   const showsCountdown = showCountdown && countdown !== '';
 
+  // Posée sur la tuile et non sur la card : la couleur dépend du statut de
+  // chaque séance. Les règles qui la consomment — fond de la tuile du jour,
+  // pastille de statut — gardent leur repli statique dans la feuille de
+  // styles, ce qu'une déclaration construite ici ne saurait pas faire.
+  const accent = `--esc-accent:${accentFor(session.status, accents)}`;
+
   return html`
     <div
       class=${classMap({
@@ -49,6 +58,7 @@ export function renderTile({
         today: session.isToday,
         closed: session.status === 'closed',
       })}
+      style=${accent}
     >
       <span class="esc-weekday">${WEEKDAY_SHORT[session.weekday] ?? ''}</span>
       <span class="esc-daynum">${session.dayOfMonth}</span>
@@ -74,6 +84,7 @@ export interface TilesOptions {
   showTime: boolean;
   showCountdown: boolean;
   showStatus: boolean;
+  accents: AccentConfig;
 }
 
 export function renderTiles({
@@ -82,6 +93,7 @@ export function renderTiles({
   showTime,
   showCountdown,
   showStatus,
+  accents,
 }: TilesOptions): TemplateResult {
   // `columns` vient de `count` et non du nombre de séances : avec deux séances
   // pour trois tuiles demandées, les colonnes restantes doivent rester vides,
@@ -89,7 +101,7 @@ export function renderTiles({
   return html`
     <div class="esc-tiles" style="--esc-columns:${columns}">
       ${sessions.map((session) =>
-        renderTile({ session, showTime, showCountdown, showStatus })
+        renderTile({ session, showTime, showCountdown, showStatus, accents })
       )}
     </div>
   `;

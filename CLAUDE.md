@@ -197,6 +197,34 @@ v1.0 (19 septembre 2026), voie A. Trois écarts volontaires, à ne pas
   `max` restait le plafond du mode liste. Les fusionner changerait le sens
   d'une configuration existante.
 
+### Couleurs d'accent
+
+Depuis la 0.3, `accent` est remplacé par `accent_open` et `accent_closed` —
+**rupture assumée**, décidée pendant que la carte n'était installée nulle part.
+Ne pas réintroduire de repli commun : il n'a plus aucun utilisateur, et il
+rendrait `accentFor` dépendant d'un ordre de précédence que rien ne montre à
+l'écran.
+
+Deux points à ne pas défaire :
+
+- **L'accent est posé par tuile, pas sur la card.** Deux séances de statuts
+  différents dans la même grille portent deux couleurs ; une propriété posée
+  sur la card les uniformiserait sans que le typage ne dise rien.
+- **La valeur passe par une propriété personnalisée**, jamais par une
+  déclaration composée en TypeScript. C'est ce qui permet de garder dans la
+  feuille de styles le repli statique de `color-mix` — `styleMap` ne sait
+  poser qu'une valeur par propriété, donc un navigateur sans `color-mix`
+  n'aurait plus rien à afficher.
+
+`normalizeColor` accepte deux formes parce que deux sources existent : une
+chaîne CSS venue du YAML, et le triplet `[r, g, b]` que renvoie le sélecteur
+`color_rgb` de l'éditeur. Ses gardes ne sont pas décoratives — la valeur
+atterrit dans une propriété que `color-mix` consomme, et un point-virgule y
+refermerait la déclaration.
+
+Le statut `unknown` n'est volontairement pas configurable, cf. la note du
+README.
+
 Non implémenté, conformément à la spécification qui le classe en P2 : le fond
 SVG « mur d'escalade » dessiné, à ne produire que si aucune photo n'est
 fournie. Sans `background`, la card retombe sur le fond uni du thème.

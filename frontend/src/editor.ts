@@ -28,7 +28,8 @@ const EDITOR_LABELS: Record<string, string> = {
   show_status: 'Afficher le statut',
   background: 'Photo de fond (mode tuiles)',
   overlay: 'Opacité du voile',
-  accent: "Couleur d'accent",
+  accent_open: 'Couleur des créneaux ouverts',
+  accent_closed: 'Couleur des créneaux fermés',
 };
 
 // Constante de module : si l'identité du tableau change à chaque rendu,
@@ -91,7 +92,12 @@ const EDITOR_SCHEMA = [
   { name: 'show_status', selector: { boolean: {} } },
   { name: 'background', selector: { text: {} } },
   { name: 'overlay', selector: { number: { min: 0, max: 1, step: 0.05, mode: 'slider' } } },
-  { name: 'accent', selector: { text: {} } },
+  // color_rgb renvoie un triplet [r, g, b] : setConfig le convertit. Un
+  // sélecteur de couleur fige la teinte au lieu de suivre le thème, c'est le
+  // prix du choix à la souris — en YAML, « var(--success-color) » reste
+  // accepté et préférable.
+  { name: 'accent_open', selector: { color_rgb: {} } },
+  { name: 'accent_closed', selector: { color_rgb: {} } },
 ] as const;
 
 const computeEditorLabel = (s: { name: string }): string => EDITOR_LABELS[s.name] ?? s.name;

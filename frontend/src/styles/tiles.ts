@@ -129,11 +129,17 @@ export const tilesStyles = css`
     background: currentColor;
     flex-shrink: 0;
   }
+  /* La pastille est une variante claire de l'accent : sur la tuile sombre,
+     l'accent brut passe sous 4,5:1. Deux déclarations, la seconde ignorée
+     sans color-mix — c'est tout l'intérêt de passer par une propriété
+     personnalisée plutôt que de composer la couleur en TypeScript. */
   .esc-status-open {
     color: #81c784;
+    color: color-mix(in srgb, var(--esc-accent, #4caf50) 65%, white);
   }
   .esc-status-closed {
     color: #ef9a9a;
+    color: color-mix(in srgb, var(--esc-accent, #f44336) 65%, white);
   }
   /* Sur l'accent foncé, les variantes claires tombent sous 4,5:1 : le blanc
      est le seul choix qui tienne le contraste, et le libellé porte déjà

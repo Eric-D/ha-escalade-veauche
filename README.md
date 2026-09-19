@@ -80,7 +80,8 @@ show_countdown: false         # "en cours" / "aujourd'hui" / "demain" / "dans N 
 show_status: false            # point coloré + "Ouvert" / "Fermé"
 background: /local/escalade.jpg   # photo dans config/www/ ; absent = fond uni
 overlay: 0.35                 # opacité du voile sombre sur la photo
-accent: var(--primary-color)  # couleur de la tuile du jour
+accent_open: var(--success-color)   # couleur des créneaux ouverts
+accent_closed: var(--error-color)   # couleur des créneaux fermés
 tap_action:
   action: more-info
 ```
@@ -88,9 +89,23 @@ tap_action:
 Les trois `show_*` sont à `false` par défaut : c'est la version la plus basse,
 on active ensuite ce qu'on veut. Tout activer monte la card à ~146 px.
 
-La séance du jour est mise en avant sur fond accentué, et une séance fermée
-reste en retrait même quand les statuts sont masqués — sans quoi elle serait
+La séance du jour est mise en avant sur un fond teinté par **son statut** :
+vert si le club ouvre, rouge s'il ferme. Une séance fermée reste par ailleurs
+en retrait même quand les statuts sont masqués — sans quoi elle serait
 indiscernable d'une séance ouverte.
+
+Les deux couleurs se règlent à la souris dans l'éditeur, avec un sélecteur de
+couleur. En YAML, préférez une variable de thème à un code hexadécimal : elle
+suit le thème de l'utilisateur, là où `#4caf50` le fige.
+
+| | Défaut | Jeton |
+|---|---|---|
+| `accent_open` | vert de succès | `var(--success-color)` |
+| `accent_closed` | rouge d'erreur | `var(--error-color)` |
+
+Non configurable : un créneau au statut non reconnu reste sur
+`var(--primary-color)`. Lui donner une couleur choisie inviterait à le lire
+comme une troisième catégorie de créneau, alors qu'il ne dit rien du club.
 
 **Une séance disparaît dès que son horaire est passé**, pas à minuit : la card
 se rafraîchit chaque minute, ce qui lui permet aussi d'afficher « en cours »

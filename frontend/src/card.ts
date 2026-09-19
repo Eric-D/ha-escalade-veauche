@@ -16,6 +16,7 @@ import {
   type Slot,
   type SlotStatus,
 } from './types.js';
+import { normalizeColor } from './helpers/accent.js';
 import { slotStatus } from './helpers/slot.js';
 import { RetryScheduler } from './helpers/retry.js';
 import { sessionAriaLabel, upcomingSessions } from './helpers/schedule.js';
@@ -120,7 +121,8 @@ export class EscaladeCard extends LitElement {
     const count = this._normalizeCount(config.count);
     const overlay = this._normalizeOverlay(config.overlay);
     const background = this._normalizeBackground(config.background);
-    const accent = this._normalizeAccent(config.accent);
+    const accentOpen = this._normalizeAccent('accent_open', config.accent_open);
+    const accentClosed = this._normalizeAccent('accent_closed', config.accent_closed);
 
     let max: number | undefined;
     if (config.max !== undefined) {
@@ -155,7 +157,8 @@ export class EscaladeCard extends LitElement {
       count,
       overlay,
       background,
-      accent,
+      accent_open: accentOpen,
+      accent_closed: accentClosed,
       // Les trois détails sont volontairement à false par défaut : c'est la
       // card la plus basse, l'utilisateur active ensuite ce qu'il veut.
       show_time: config.show_time === true,
@@ -299,15 +302,14 @@ export class EscaladeCard extends LitElement {
     return raw;
   }
 
-  /** Couleur d'accent. Les parenthèses sont admises — `var()`, `rgb()` — mais
-      pas ce qui permettrait de sortir de la déclaration. */
-  private _normalizeAccent(raw: unknown): string | undefined {
+  /** Couleur d'accent, chaîne CSS ou triplet du sélecteur de couleur. */
+  private _normalizeAccent(name: string, raw: unknown): string | undefined {
     if (raw === undefined) return undefined;
-    if (typeof raw !== 'string' || /[;{}<>]/.test(raw) || raw.length > 120) {
-      ecLog('warn', 'card', "'accent' ignoré : valeur inattendue (%o)", raw);
-      return undefined;
+    const color = normalizeColor(raw);
+    if (color === undefined) {
+      ecLog('warn', 'card', "'%s' ignoré : valeur inattendue (%o)", name, raw);
     }
-    return raw;
+    return color;
   }
 
   /** Résout l'état suivi à partir de la config et du hass courants. */
@@ -636,7 +638,7 @@ export class EscaladeCard extends LitElement {
     const style = [
       background ? `background-image:url("${background}")` : '',
       config?.overlay !== undefined ? `--esc-overlay:${config.overlay}` : '',
-      config?.accent ? `--esc-accent:${config.accent}` : '',
+
     ]
       .filter(Boolean)
       .join(';');
@@ -680,6 +682,10 @@ export class EscaladeCard extends LitElement {
             showTime: this._config?.show_time === true,
             showCountdown: this._config?.show_countdown === true,
             showStatus: this._config?.show_status === true,
+            accents: {
+              open: this._config?.accent_open as string | undefined,
+              closed: this._config?.accent_closed as string | undefined,
+            },
           });
 
     return this._tilesShell(
