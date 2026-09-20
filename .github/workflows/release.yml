@@ -8,15 +8,26 @@ on:
 permissions:
   contents: write
 
+# Ce workflow **ne pousse rien sur `main`**, et c'est une correction payée cher
+# sur ha-mount-guardian, qui reprend ces conventions. Sa version précédente
+# recalculait les numéros de version à partir du tag puis committait le
+# résultat sur `main`. Le jour où un tag existant a été repoussé — réécriture
+# d'historique — le workflow s'est rejoué et a **ramené `main` à la version du
+# tag**, écrasant celle d'après.
+#
+# Le bump automatique n'a donc plus lieu d'être : les versions sont posées dans
+# le commit AVANT de poser le tag, et ce workflow se contente de **vérifier**
+# qu'elles correspondent. Une vérification qui échoue coûte un tag à refaire ;
+# un bump automatique qui part de travers coûte une branche.
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # Le tag lui-même, pas `main` : c'est le code qu'on publie qu'on teste.
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -48,49 +59,33 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Update versions in all source files
+      # Le manifeste seul suffit ici : `tests/test_manifest.py` croise ensuite
+      # les cinq autres fichiers avec lui, donc une seule comparaison relie le
+      # tag à l'ensemble.
+      - name: Le manifeste doit déclarer la version du tag
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # manifest.json (intégration HA)
-          sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" \
-            custom_components/escalade_veauche/manifest.json
-          # __init__.py CARD_VERSION (cache-bust de la ressource Lovelace)
-          sed -i "s/^CARD_VERSION = \".*\"$/CARD_VERSION = \"${VERSION}\"/" \
-            custom_components/escalade_veauche/__init__.py
-          # frontend/src/version.ts (banner console + constante exportée)
-          sed -i "s/export const ESCALADE_CARD_VERSION = '.*';/export const ESCALADE_CARD_VERSION = '${VERSION}';/" \
-            frontend/src/version.ts
-          # frontend/package.json + package-lock.json
-          (cd frontend && npm version --no-git-tag-version --allow-same-version "${VERSION}")
+          DECLARED=$(python -c "
+          import json
+          print(json.load(open('custom_components/escalade_veauche/manifest.json'))['version'])
+          ")
+          if [ "$DECLARED" != "$VERSION" ]; then
+            echo "::error::Le manifeste déclare ${DECLARED}, le tag dit ${VERSION}."
+            echo "::error::Posez les versions dans un commit, puis taguez ce commit."
+            exit 1
+          fi
+          echo "manifeste et tag d'accord sur ${VERSION}"
 
-      - name: Rebuild frontend bundle with new version
-        working-directory: frontend
-        run: |
-          npm run typecheck
-          npm run build
-
-      # Après le bump et le rebuild : c'est le code réellement publié qu'on
-      # teste, pas celui d'avant substitution des versions.
       - name: Run tests
         run: pytest -q
 
-      - name: Commit version bump and rebuilt bundle
+      - name: Rebuild the bundle and check it matches what is committed
         run: |
-          git config user.name "Eric-D"
-          git config user.email "Eric-D@users.noreply.github.com"
-          git add \
-            custom_components/escalade_veauche/manifest.json \
-            custom_components/escalade_veauche/__init__.py \
-            custom_components/escalade_veauche/www/escalade-card.js \
-            frontend/src/version.ts \
-            frontend/package.json \
-            frontend/package-lock.json
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
-            git push origin main
-            # Move tag to include version bump commit
-            git tag -f "$GITHUB_REF_NAME"
-            git push origin "$GITHUB_REF_NAME" --force
+          (cd frontend && npm run typecheck && npm run build)
+          if ! git diff --quiet custom_components/escalade_veauche/www/escalade-card.js; then
+            echo "::error::Le bundle commité diffère du build. Rien n'est publié."
+            git --no-pager diff --stat custom_components/escalade_veauche/www/escalade-card.js
+            exit 1
           fi
 
       - name: Generate changelog
